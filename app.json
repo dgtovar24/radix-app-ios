@@ -1,0 +1,55 @@
+{
+  "name": "radix-ios",
+  "displayName": "Radix Medical",
+  "extra": {
+    "expo": {
+      "slug": "radix-ios",
+      "scheme": "radix"
+    }
+  },
+  "ios": {
+    "bundleIdentifier": "com.project.radix.app",
+    "buildNumber": "1",
+    "appVersion": "1.0.0",
+    "supportsTablet": true,
+    "entitlements": {
+      "com.apple.developer.healthkit": true,
+      "com.apple.developer.healthkit.access": [
+        "health-records"
+      ]
+    },
+    "infoPlist": {
+      "NSHealthShareUsageDescription": "Radix needs access to your health data to monitor your treatment and provide personalized recommendations.",
+      "NSHealthUpdateUsageDescription": "Radix needs to write health data to track your radiation exposure levels.",
+      "NSLocationWhenInUseUsageDescription": "Radix uses your location to identify hospital zones for radiation tracking.",
+      "NSLocationAlwaysAndWhenInUseUsageDescription": "Radix uses your location to monitor radiation exposure continuously during your treatment.",
+      "UIBackgroundModes": [
+        "location",
+        "fetch",
+        "remote-notification"
+      ]
+    }
+  },
+  "android": {
+    "package": "com.project.radix.app",
+    "versionCode": 1
+  },
+  "plugins": [
+    "expo-router",
+    [
+      "expo-build-properties",
+      {
+        "ios": {
+          "deploymentTarget": "15.1"
+        }
+      }
+    ],
+    "expo-secure-store",
+    "expo-notifications",
+    "expo-asset"
+  ],
+  "experiments": {
+    "turboModules": true
+  },
+  "newArchEnabled": true
+}

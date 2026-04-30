@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build
+ios/build/
+ios/Pods/
+ios/Podfile.lock
+android/app/build/
+android/.gradle/
+android/local.properties
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Env
+.env
+.env.local
