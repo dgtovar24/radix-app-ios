@@ -1,216 +1,73 @@
-import { useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-} from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useThemeColors } from '../theme/useThemeColor';
+import { patientService, watchService, type Patient, type WatchMetrics } from '../services/api';
 import Card from '../components/Card';
 import ProgressBar from '../components/ProgressBar';
-import Badge from '../components/Badge';
 import RadiationGauge from '../components/RadiationGauge';
-import {
-  ClockIcon,
-  ShieldIcon,
-  UserIcon,
-  InfoIcon,
-  ArrowLeftIcon,
-} from '../components/Icons';
+import { ClockIcon, ShieldIcon } from '../components/Icons';
 
-function calculateRemaining(startDate: string, isolationDays: number) {
-  const start = new Date(startDate).getTime();
-  const end = start + isolationDays * 24 * 60 * 60 * 1000;
-  const now = Date.now();
-  const totalMs = end - start;
-  const remainingMs = Math.max(0, end - now);
-
-  const days = Math.floor(remainingMs / (24 * 60 * 60 * 1000));
-  const hours = Math.floor((remainingMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-  const minutes = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
-  const elapsedDays = Math.floor((now - start) / (24 * 60 * 60 * 1000));
-  const progress = totalMs > 0 ? Math.min((now - start) / totalMs, 1) : 1;
-
-  return { elapsedDays, remainingMs, days, hours, minutes, progress };
-}
-
-const MOCK_FAMILY_PATIENT = {
-  fullName: 'María García López',
-  isolationStartDate: '2026-04-22',
-  isolationDays: 14,
-  currentRadiation: 0.08,
-  admissionDate: '2026-04-21',
-};
-
-export default function FamilyDashboardScreen() {
-  const router = useRouter();
-  const { code } = useLocalSearchParams<{ code: string }>();
+export default function FamilyDashboard() {
   const colors = useThemeColors();
-  const patient = MOCK_FAMILY_PATIENT;
+  const [code, setCode] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [metrics, setMetrics] = useState<WatchMetrics | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const remaining = useMemo(
-    () => calculateRemaining(patient.isolationStartDate, patient.isolationDays),
-    [patient.isolationStartDate, patient.isolationDays]
-  );
+  const handleSearch = async () => {
+    if (!code.trim()) return;
+    setLoading(true); setError('');
+    try {
+      const patients = await patientService.getAll('');
+      const found = patients.find(p => p.familyAccessCode === code.trim());
+      if (!found) { setError('Código no encontrado'); setPatient(null); return; }
+      setPatient(found);
+      setSubmitted(true);
+      try { const m = await watchService.getLatestByPatient(found.id, ''); setMetrics(m); } catch {}
+    } catch { setError('Error de conexión'); }
+    finally { setLoading(false); }
+  };
+
+  const radiation = metrics?.currentRadiation ?? 0;
+
+  if (!submitted) {
+    return (
+      <View style={[styles.c, { backgroundColor: colors.background, justifyContent:'center', padding:24 }]}>
+        <Text style={{ color: colors.text, fontSize:22, fontWeight:'700', textAlign:'center', marginBottom:8 }}>Acceso Familiar</Text>
+        <Text style={{ color: colors.textSecondary, fontSize:14, textAlign:'center', marginBottom:24 }}>Ingresa el código de acceso familiar del paciente</Text>
+        <TextInput style={[styles.inp, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]} placeholder="Código de acceso (ej: FAM-0001)" placeholderTextColor={colors.textSecondary} value={code} onChangeText={setCode} autoCapitalize="characters" />
+        <TouchableOpacity onPress={handleSearch} disabled={loading} style={[styles.btn, { backgroundColor: colors.primary }]}>{loading ? <ActivityIndicator color="#fff" /> : <Text style={{ color:'#fff', fontWeight:'700', fontSize:16 }}>Ver Paciente</Text>}</TouchableOpacity>
+        {error ? <Text style={{ color: colors.error, textAlign:'center', marginTop:12 }}>{error}</Text> : null}
+      </View>
+    );
+  }
+
+  if (!patient) return null;
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
-    >
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={styles.backButton}
-      >
-        <ArrowLeftIcon color={colors.primary} size={24} />
-      </TouchableOpacity>
+    <ScrollView style={[styles.c, { backgroundColor: colors.background }]} contentContainerStyle={styles.cont}>
+      <Text style={{ color: colors.text, fontSize:24, fontWeight:'700', marginBottom:4 }}>{patient.fullName}</Text>
+      <Text style={{ color: colors.textSecondary, fontSize:14, marginBottom:24 }}>Código: {patient.familyAccessCode}</Text>
 
-      <View style={styles.header}>
-        <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-          <UserIcon color="#FFFFFF" size={28} />
-        </View>
-        <Text style={[styles.name, { color: colors.text }]}>
-          {patient.fullName}
-        </Text>
-        <Badge label="En Confinamiento" variant="success" />
-        <View style={{ height: 8 }} />
-        <Badge label="Demostración" variant="warning" />
-      </View>
-
-      <Card style={styles.countdownCard}>
-        <View style={styles.cardHeader}>
-          <ClockIcon color={colors.primary} size={20} />
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Tiempo de Aislamiento
-          </Text>
-        </View>
-
-        <Text style={[styles.countdownValue, { color: colors.primary }]}>
-          {remaining.days}d {remaining.hours}h {remaining.minutes}m
-        </Text>
-        <Text style={[styles.countdownLabel, { color: colors.textSecondary }]}>
-          Día {remaining.elapsedDays + 1} de {patient.isolationDays}
-        </Text>
-        <ProgressBar progress={remaining.progress} />
+      <Card style={{ padding: 20, marginBottom: 16, alignItems: 'center' }}>
+        <RadiationGauge value={Math.min(radiation * 7, 100)} maxValue={100} size={140} />
+        <Text style={{ color: colors.text, fontSize:28, fontWeight:'800', marginTop:12 }}>{radiation.toFixed(2)} mSv</Text>
+        <Text style={{ color: colors.textSecondary, fontSize:13 }}>Radiación actual</Text>
       </Card>
 
-      <Card style={styles.radiationCard}>
-        <View style={styles.cardHeader}>
-          <ShieldIcon color={colors.primary} size={20} />
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Nivel de Radiación
-          </Text>
-        </View>
-        <View style={styles.gaugeCenter}>
-          <RadiationGauge
-            value={patient.currentRadiation}
-            maxValue={1}
-            size={150}
-            strokeWidth={10}
-          />
-        </View>
-      </Card>
-
-      <Card style={styles.infoRow}>
-        <View style={styles.infoItem}>
-          <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-            Fecha de Ingreso
-          </Text>
-          <Text style={[styles.infoValue, { color: colors.text }]}>
-            {new Date(patient.admissionDate).toLocaleDateString('es-ES')}
-          </Text>
-        </View>
-      </Card>
-
-      <Card style={styles.warningCard}>
-        <InfoIcon color={colors.warning} size={22} />
-        <Text style={[styles.warningText, { color: colors.text }]}>
-          El paciente debe mantener el aislamiento durante el tiempo estipulado.
-          No se permite contacto físico directo.
-        </Text>
-      </Card>
+      {metrics && (
+        <Card style={{ padding: 20, marginBottom: 16 }}>
+          <View style={{ flexDirection:'row', justifyContent:'space-around' }}>
+            <View style={{ alignItems:'center' }}><Text style={{ color: colors.text, fontSize:20, fontWeight:'700' }}>{metrics.bpm ?? '-'}</Text><Text style={{ color: colors.textSecondary, fontSize:12 }}>BPM</Text></View>
+            <View style={{ alignItems:'center' }}><Text style={{ color: colors.text, fontSize:20, fontWeight:'700' }}>{metrics.steps ?? '-'}</Text><Text style={{ color: colors.textSecondary, fontSize:12 }}>Pasos</Text></View>
+            <View style={{ alignItems:'center' }}><Text style={{ color: colors.text, fontSize:20, fontWeight:'700' }}>{metrics.distance?.toFixed(1) ?? '-'}</Text><Text style={{ color: colors.textSecondary, fontSize:12 }}>km</Text></View>
+          </View>
+        </Card>
+      )}
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: 24, paddingTop: 16, paddingBottom: 40 },
-  backButton: { padding: 8, marginBottom: 8 },
-  header: {
-    alignItems: 'center',
-    marginBottom: 24,
-    gap: 8,
-  },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: '700',
-    fontFamily: 'Inter',
-    marginTop: 8,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Inter',
-  },
-  countdownCard: { padding: 20, marginBottom: 16 },
-  countdownValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    fontFamily: 'Inter',
-    marginBottom: 4,
-  },
-  countdownLabel: {
-    fontSize: 13,
-    fontFamily: 'Inter',
-    marginBottom: 12,
-  },
-  radiationCard: { padding: 20, marginBottom: 16 },
-  gaugeCenter: { alignItems: 'center' },
-  infoRow: {
-    flexDirection: 'row',
-    padding: 20,
-    marginBottom: 16,
-  },
-  infoItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  infoLabel: {
-    fontSize: 13,
-    fontFamily: 'Inter',
-  },
-  infoValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    fontFamily: 'Inter',
-  },
-  warningCard: {
-    padding: 20,
-    flexDirection: 'row',
-    gap: 14,
-    alignItems: 'flex-start',
-  },
-  warningText: {
-    fontSize: 14,
-    lineHeight: 20,
-    flex: 1,
-    fontFamily: 'Inter',
-  },
-});
+const styles = StyleSheet.create({ c:{flex:1}, cont:{padding:24,paddingBottom:40}, inp:{borderWidth:1,borderRadius:14,padding:16,fontSize:16,marginBottom:16}, btn:{padding:16,borderRadius:14,alignItems:'center'} });

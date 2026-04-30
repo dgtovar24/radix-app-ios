@@ -1,115 +1,46 @@
 import { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import { useThemeColors } from '../../theme/useThemeColor';
-import Card from '../../components/Card';
-import Input from '../../components/Input';
-import PrimaryButton from '../../components/PrimaryButton';
+import { patientService, messageService } from '../../services/api';
 import { MessageIcon } from '../../components/Icons';
 
 export default function ContactDoctorScreen() {
   const colors = useThemeColors();
-  const [subject, setSubject] = useState('');
-  const [message, setMessage] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
 
-  const handleSend = () => {
-    if (!subject.trim() || !message.trim()) {
-      Alert.alert('Error', 'Completa todos los campos');
-      return;
-    }
-    setSubmitted(true);
+  const handleSend = async () => {
+    if (!text.trim()) return;
+    setSending(true);
+    try {
+      const t = await SecureStore.getItemAsync('auth_token');
+      if (!t) return;
+      const patients = await patientService.getAll(t);
+      const p = patients[0];
+      if (p) await messageService.send({ fkPatientId: p.id, messageText: text.trim() }, t);
+      setSent(true);
+      setText('');
+    } catch {} finally { setSending(false); }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {!submitted ? (
-          <>
-            <Text style={[styles.title, { color: colors.text }]}>
-              Contactar al Médico
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Envía un mensaje a tu médico. Te responderá lo antes posible.
-            </Text>
-
-            <Card style={styles.formCard}>
-              <Input
-                label="Asunto"
-                value={subject}
-                onChangeText={setSubject}
-                placeholder="Ej. Consulta sobre mi tratamiento"
-              />
-              <View style={{ height: 16 }} />
-              <Input
-                label="Mensaje"
-                value={message}
-                onChangeText={setMessage}
-                placeholder="Escribe tu mensaje aquí..."
-                multiline
-                numberOfLines={5}
-                style={{ minHeight: 120, textAlignVertical: 'top' }}
-              />
-              <View style={{ height: 20 }} />
-              <PrimaryButton title="Enviar Mensaje" onPress={handleSend} />
-            </Card>
-          </>
-        ) : (
-          <Card style={styles.successCard}>
-            <MessageIcon color={colors.success} size={40} />
-            <Text style={[styles.successTitle, { color: colors.text }]}>
-              Mensaje enviado
-            </Text>
-            <Text style={[styles.successText, { color: colors.textSecondary }]}>
-              Tu médico recibirá tu mensaje y te responderá pronto.
-            </Text>
-          </Card>
-        )}
-      </ScrollView>
+    <KeyboardAvoidingView style={[styles.c, { backgroundColor: colors.background }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={styles.inner}>
+        <View style={{ alignItems:'center', marginBottom:24 }}>
+          <MessageIcon color={colors.primary} size={48} />
+          <Text style={{ color: colors.text, fontSize:18, fontWeight:'700', marginTop:12 }}>Contactar al Médico</Text>
+          <Text style={{ color: colors.textSecondary, fontSize:14, marginTop:4 }}>Envía un mensaje a tu equipo médico</Text>
+        </View>
+        <TextInput style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]} placeholder="Escribe tu mensaje aquí..." placeholderTextColor={colors.textSecondary} multiline numberOfLines={6} textAlignVertical="top" value={text} onChangeText={setText} />
+        <TouchableOpacity onPress={handleSend} disabled={sending || !text.trim()} style={[styles.btn, { backgroundColor: (sending || !text.trim()) ? colors.textSecondary : colors.primary }]}>
+          {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnt}>{sent ? 'Mensaje Enviado' : 'Enviar Mensaje'}</Text>}
+        </TouchableOpacity>
+        {sent && <Text style={{ color: colors.success, textAlign:'center', marginTop:12, fontWeight:'600' }}>Tu mensaje ha sido enviado al equipo médico</Text>}
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: 24, flexGrow: 1, justifyContent: 'center' },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 8,
-    fontFamily: 'Inter',
-  },
-  subtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 24,
-    fontFamily: 'Inter',
-  },
-  formCard: { padding: 20 },
-  successCard: {
-    padding: 40,
-    alignItems: 'center',
-    gap: 16,
-  },
-  successTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    fontFamily: 'Inter',
-  },
-  successText: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-    fontFamily: 'Inter',
-  },
-});
+const styles = StyleSheet.create({ c:{flex:1}, inner:{flex:1,padding:24,justifyContent:'center'}, input:{borderWidth:1,borderRadius:14,padding:16,fontSize:15,minHeight:140,marginBottom:16}, btn:{padding:16,borderRadius:14,alignItems:'center'}, btnt:{color:'#fff',fontSize:16,fontWeight:'700'} });

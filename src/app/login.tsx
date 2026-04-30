@@ -7,7 +7,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  ActivityIndicator,
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -54,7 +53,7 @@ export default function LoginScreen() {
     try {
       const response = await authService.login(email.trim(), password);
       await SecureStore.setItemAsync('auth_token', String(response.token));
-      await SecureStore.setItemAsync('user_id', String(response.userId));
+      await SecureStore.setItemAsync('user_id', String(response.id));
       await SecureStore.setItemAsync('user_role', String(response.role ?? 'patient'));
 
       if (remember) {
@@ -65,8 +64,12 @@ export default function LoginScreen() {
 
       router.replace('/(tabs)');
     } catch (error) {
-      Alert.alert('Error', (error as Error).message ?? 'Credenciales inválidas');
-    } finally {
+      const msg = (error as Error).message;
+      if (msg?.includes('Network') || msg?.includes('fetch')) {
+        Alert.alert('Error de conexión', 'No se pudo conectar al servidor. Verifica tu conexión.');
+      } else {
+        Alert.alert('Error', msg || 'Credenciales inválidas');
+      }
       setLoading(false);
     }
   };
@@ -142,17 +145,11 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <PrimaryButton
-            title={loading ? '' : 'Iniciar Sesión'}
+            title="Iniciar Sesión"
             onPress={handleLogin}
-            disabled={loading}
+            loading={loading}
             style={styles.loginButton}
           />
-          {loading && (
-            <ActivityIndicator
-              color="#FFFFFF"
-              style={styles.loadingOverlay}
-            />
-          )}
 
           <TouchableOpacity
             onPress={() => router.push('/recover')}
@@ -221,13 +218,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
   loginButton: { marginBottom: 0 },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
   forgotLink: { alignItems: 'center', marginTop: 20 },
   forgotText: {
     fontSize: 14,
