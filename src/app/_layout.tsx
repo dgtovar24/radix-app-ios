@@ -1,8 +1,9 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StyleSheet } from 'react-native';
 import ThemeProvider, { useTheme } from '../theme/ThemeContext';
+import { useNotifications } from '../hooks/useNotifications';
 
 export default function RootLayout() {
   return (
@@ -18,6 +19,13 @@ export default function RootLayout() {
 
 function AppNavigator() {
   const { colors } = useTheme();
+  const router = useRouter();
+
+  useNotifications((data) => {
+    if (data?.route) {
+      router.push(data.route as any);
+    }
+  });
 
   return (
     <Stack
