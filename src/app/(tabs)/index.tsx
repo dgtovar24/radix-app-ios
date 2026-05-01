@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { useThemeColors } from '../../theme/useThemeColor';
 import { useHealthData } from '../../hooks/useHealthKit';
+import { useHealthKitSync } from '../../hooks/useHealthKitSync';
 import { patientService, treatmentService, alertService, watchService, messageService, type Treatment, type Alert, type WatchMetrics, type Message } from '../../services/api';
 import Card from '../../components/Card';
 import ProgressBar from '../../components/ProgressBar';
@@ -36,6 +37,7 @@ export default function DashboardScreen() {
   const [token, setToken] = useState('');
 
   const { bpm: hkBpm, steps: hkSteps, distance: hkDistance, refresh: refreshHealth } = useHealthData();
+  useHealthKitSync(!!token);
 
   useEffect(() => { loadAll(); }, []);
 
