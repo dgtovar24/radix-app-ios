@@ -2,8 +2,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { StyleSheet } from 'react-native';
+import { useEffect } from 'react';
 import ThemeProvider, { useTheme } from '../theme/ThemeContext';
 import { useNotifications } from '../hooks/useNotifications';
+import { registerBackgroundSync } from '../services/backgroundSync';
 
 export default function RootLayout() {
   return (
@@ -20,6 +22,10 @@ export default function RootLayout() {
 function AppNavigator() {
   const { colors } = useTheme();
   const router = useRouter();
+
+  useEffect(() => {
+    registerBackgroundSync();
+  }, []);
 
   useNotifications((data) => {
     if (data?.route) {
